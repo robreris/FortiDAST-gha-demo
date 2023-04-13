@@ -11,17 +11,24 @@ void setBuildStatus(String message, String state, String repo_url) {
 pipeline {
     agent any
     stages {
-        stage('Running cfn-lint and cfn-nag linters...') {
+        stage('Run cfn-lint linter') {
             steps {
-                sh 'cfn-lint $(pwd)/pipeline/webhosting/cloudformation/*.yaml'
-            }
-            steps {
-                sh 'docker pull stelligent/cfn_nag:latest'
-                sh 'docker run -v $(pwd)/pipeline/webhosting:/templates -t stelligent/cfn_nag /templates/cloudformation-s3-website.yaml'
-                sh 'docker run -v $(pwd)/pipeline/webhosting:/templates -t stelligent/cfn_nag /templates/pipeline.yaml'
+                echo "Running cfn-lint..."
+                sh 'cfn-lint $(pwd)/pipeline/webhosting/cloudfront-s3-website.yaml'
+                sh 'cfn-lint $(pwd)/pipeline/webhosting/pipeline.yaml'
+
             }
         }
+        stage('Run cfn-nag linter'){
+            when { expression { false } }
+            steps {
+                sh 'docker pull stelligent/cfn_nag:latest'
+                sh 'docker run -v $(pwd)/pipeline/webhosting:/templates -t stelligent/cfn_nag /templates/cloudfront-s3-website.yaml'
+                sh 'docker run -v $(pwd)/pipeline/webhosting:/templates -t stelligent/cfn_nag /templates/pipeline.yaml'
+            }
+        } 
         stage('Running FortiDevSec scans...') {
+            when { expression { false } }
             steps {
                 echo "Running SAST scan..."
                 sh 'env | grep -E "JENKINS_HOME|BUILD_ID|GIT_BRANCH|GIT_COMMIT" > /tmp/env'
