@@ -11,12 +11,6 @@ void setBuildStatus(String message, String state, String repo_url) {
 pipeline {
     agent any
 
-    environment {
-        AWS_ROLE_ARN = '<role arn>'
-        TEMPLATE = '$(pwd)/pipeline/...'
-        TEMPLATE_PARAMS = '$(pwd)/pipeline/...'
-    }
-
     stages {
         stage('Run cfn-lint linter') {
             steps {
@@ -41,27 +35,6 @@ pipeline {
                 sh 'env | grep -E "JENKINS_HOME|BUILD_ID|GIT_BRANCH|GIT_COMMIT" > /tmp/env'
                 sh 'docker pull registry.fortidevsec.forticloud.com/fdevsec_sast:latest'
                 sh 'docker run --rm --env-file /tmp/env --mount type=bind,source=$PWD,target=/scan registry.fortidevsec.forticloud.com/fdevsec_sast:latest'
-            }
-        }
-        stage('Cloudformation Template Test Deployment'){
-            when { expression { false } }
-            steps {
-               sh '''
-                echo "Getting AWS account credentials..."
-                set +x
-                EXTERNAL_ID=\$(aws ssm get-parameter --name /jenkins/external-id --region us-east-1 --with-decryption | jq -r '.Parameter | .Value ')
-                ASSUME_ROLE_OUTPUT=\$(aws sts assume-role --role-arn ${AWS_ROLE_ARN} --role-session-name jenkins --external-id \$EXTERNAL_ID)
-                ASSUME_ROLE_ENVIRONMENT=\$(echo \$ASSUME_ROLE_OUTPUT | jq -r \'.Credentials | .["AWS_ACCESS_KEY_ID"] = .AccessKeyId | .["AWS_SECRET_ACCESS_KEY"] = .SecretAccessKey | .["AWS_SESSION_TOKEN"] = .SessionToken | del(.AccessKeyId, .SecretAccessKey, .SessionToken, .Expiration) | to_entries[] | "export \\(.key)=\\(.value)"\')
-                eval \$ASSUME_ROLE_ENVIRONMENT 
-                ERROR_CREDS="\$?"
-                set -x
-                [[ "ERROR_CREDS" == "0" ]] || echo "Error setting AWS credentials..."
-                echo "Building stack..."
-                stack_id=\$(aws cloudformation create-stack --stack-name stack-build-test --template-body file://$TEMPLATE --parameters file://$TEMPLATE_PARAMS --capabilities CAPABILITY_NAMED_IAM | jq .[] -r)
-                stack_name=\$(aws cloudformation describe-stacks --query "Stacks[?StackId==\'\$stack_id\'][StackName]" --output text)
-                echo "waiting on stack build to complete..."
-                aws cloudformation wait stack-create-complete --stack-name \$stack_name
-               '''
             }
         }
     }
