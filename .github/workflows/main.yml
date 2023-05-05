@@ -1,0 +1,60 @@
+name: Digital Realty Demo
+run-name: Deploy New Container
+on: 
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  RUN_STEP: true
+  ECR_REPOSITORY: dig-real-demo
+
+jobs:
+  DeployStackTest:
+    runs-on: self-hosted
+    steps:
+      - name: Check out repo code
+        uses: actions/checkout@v2
+      - name: Configure AWS credentials
+        id: creds
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@62f4f872db3836360b72999f4b87f1ff13310f3a
+      - name: build, tag, push
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |          
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+      - name: Wait on cluster to stabilize
+        run: |
+          sleep 5
+          aws ecs wait services-stable --cluster dig-real-demo --services WorkshopSvc      
+  FortiDevSec-Run:
+    runs-on: self-hosted
+    if: ${{ false }}
+    needs: DeployStackTest
+    steps:
+      - name: Run SAST scan
+        uses: actions/checkout@v2
+      - run: |
+          env | grep -E "GITHUB_ACTIONS|GITHUB_RUN_NUMBER|GITHUB_REF_NAME|GITHUB_SHA" > /tmp/env
+          docker pull registry.fortidevsec.forticloud.com/fdevsec_sast:latest
+          docker run --rm --env-file /tmp/env --mount type=bind,source=$PWD,target=/scan registry.fortidevsec.forticloud.com/fdevsec_sast:latest
+  FortiDAST-Run:
+    runs-on: self-hosted
+    needs: DeployStackTest
+    steps:
+      - name: Run DAST scan
+        uses: actions/checkout@v2
+      - run: |
+          env | grep -E "GITHUB_ACTIONS|GITHUB_RUN_NUMBER|GITHUB_REF_NAME|GITHUB_SHA" > /tmp/env
+          docker pull registry.fortidevsec.forticloud.com/fdevsec_dast:latest
+          docker run --rm --env-file /tmp/env --mount type=bind,source=$PWD,target=/scan registry.fortidevsec.forticloud.com/fdevsec_dast:latest
