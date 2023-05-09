@@ -1,5 +1,5 @@
 name: Digital Realty Demo
-run-name: Deploy New Container
+run-name: Pipeline Failure
 on: 
   push:
     branches:
