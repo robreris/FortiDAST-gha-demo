@@ -1,5 +1,5 @@
 name: Digital Realty Demo
-run-name: Pipeline Failure
+run-name: Deploy New Container
 on: 
   push:
     branches:
@@ -8,7 +8,7 @@ on:
 env:
   AWS_REGION: us-east-1
   RUN_STEP: true
-  ECR_REPOSITORY: dig-real-demo
+  ECR_REPOSITORY: fortidast-demo
 
 jobs:
   DeployStackTest:
@@ -36,7 +36,7 @@ jobs:
       - name: Wait on cluster to stabilize
         run: |
           sleep 5
-          aws ecs wait services-stable --cluster dig-real-demo --services WorkshopSvc      
+          aws ecs wait services-stable --cluster fortidast-demo --services WorkshopSvc      
   FortiDevSec-Run:
     runs-on: self-hosted
     if: ${{ true }}
@@ -58,4 +58,4 @@ jobs:
       - run: |
           env | grep -E "GITHUB_ACTIONS|GITHUB_RUN_NUMBER|GITHUB_REF_NAME|GITHUB_SHA" > /tmp/env
           docker pull registry.fortidevsec.forticloud.com/fdevsec_dast:latest
-          docker run --rm --env-file /tmp/env --mount type=bind,source=$PWD,target=/scan registry.fortidevsec.forticloud.com/fdevsec_dast:latest
+          docker run --rm --mount type=bind,source="$PWD",target=/scan registry.fortidevsec.forticloud.com/fdevsec_dast:latest
