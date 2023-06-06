@@ -4,7 +4,7 @@ chapter: true
 weight: 1
 ---
 
-# Fortinet Standard Workshop Web format - MVP1 v2
+# Fortinet Standard Workshop Web format - MVP1 v3
 
 ### Welcome!
 
